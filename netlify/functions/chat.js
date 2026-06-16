@@ -64,7 +64,7 @@ exports.handler = async (event) => {
   }
 
   const MAX_HISTORY = 40;
-  const userMessages = messages
+  const geminiMessages = messages
     .slice(-MAX_HISTORY)
     .filter(m => m.role === "user" || m.role === "assistant")
     .map(m => ({
@@ -72,20 +72,17 @@ exports.handler = async (event) => {
       parts: [{ text: String(m.content).slice(0, 8000) }],
     }));
 
-  // Inject system prompt as first user/model exchange
-  const geminiMessages = [
-    { role: "user",  parts: [{ text: SYSTEM_PROMPT }] },
-    { role: "model", parts: [{ text: "Understood! I am NOVA, your intelligent AI assistant. How can I help you today?" }] },
-    ...userMessages,
-  ];
-
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
+  // v1beta + gemini-2.0-flash is the correct free tier combination
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   try {
     const response = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
         contents: geminiMessages,
         generationConfig: {
           maxOutputTokens: 1024,
