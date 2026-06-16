@@ -9,7 +9,7 @@
  *   Value: your key from https://aistudio.google.com/apikey
  */
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-1.5-flash";
 const GEMINI_API   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const SYSTEM_PROMPT = `You are NOVA, an intelligent and friendly AI assistant. You are helpful, knowledgeable, and precise. You format responses with markdown when helpful (especially for code, lists, and structured information). You are concise when brevity suits the question, and thorough when the topic demands depth. You never pretend to be another AI assistant.`;
@@ -124,4 +124,5 @@ exports.handler = async (event) => {
     return { statusCode: 502, headers: corsHeaders, body: JSON.stringify({ error: "Failed to reach AI service. Try again." }) };
   }
 };
-      
+    
+  
