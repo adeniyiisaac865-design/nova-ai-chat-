@@ -2,15 +2,10 @@
  * NOVA — Secure API Proxy (Google Gemini - FREE)
  * Netlify Function: /api/chat
  *
- * Uses Google Gemini's FREE tier — no credit card needed!
- *
- * Set the environment variable in Netlify:
+ * Set environment variable in Netlify:
  *   Key:   GEMINI_API_KEY
  *   Value: your key from https://aistudio.google.com/apikey
  */
-
-const GEMINI_MODEL = "gemini-1.5-flash-latest";
-const GEMINI_API   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const SYSTEM_PROMPT = `You are NOVA, an intelligent and friendly AI assistant. You are helpful, knowledgeable, and precise. You format responses with markdown when helpful (especially for code, lists, and structured information). You are concise when brevity suits the question, and thorough when the topic demands depth. You never pretend to be another AI assistant.`;
 
@@ -47,19 +42,16 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
-  // Rate limiting
   const clientIP = event.headers["x-forwarded-for"]?.split(",")[0] || "unknown";
   if (isRateLimited(clientIP)) {
     return { statusCode: 429, headers: corsHeaders, body: JSON.stringify({ error: "Too many requests. Please wait a moment." }) };
   }
 
-  // API key check
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Server configuration error. API key missing." }) };
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "API key missing." }) };
   }
 
-  // Parse body
   let body;
   try {
     body = JSON.parse(event.body || "{}");
@@ -72,8 +64,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "messages array is required." }) };
   }
 
-  // Convert messages to Gemini format
-  // Gemini uses "user" and "model" roles (not "assistant")
+  // Convert to Gemini format
   const MAX_HISTORY = 40;
   const geminiMessages = messages
     .slice(-MAX_HISTORY)
@@ -84,19 +75,21 @@ exports.handler = async (event) => {
     }));
 
   if (geminiMessages.length === 0) {
-    return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No valid messages provided." }) };
+    return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No valid messages." }) };
   }
 
-  // Call Gemini API
+  // Use v1 (not v1beta) and gemini-pro model
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
+
   try {
-    const response = await fetch(`${GEMINI_API}?key=${apiKey}`, {
+    const response = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        system_instruction: {
+        contents: geminiMessages,
+        systemInstruction: {
           parts: [{ text: SYSTEM_PROMPT }]
         },
-        contents: geminiMessages,
         generationConfig: {
           maxOutputTokens: 1024,
           temperature: 0.7,
@@ -124,5 +117,3 @@ exports.handler = async (event) => {
     return { statusCode: 502, headers: corsHeaders, body: JSON.stringify({ error: "Failed to reach AI service. Try again." }) };
   }
 };
-
- 
