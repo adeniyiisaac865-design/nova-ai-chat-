@@ -1,0 +1,22 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Route /api/chat → the serverless function
+[[redirects]]
+  from   = "/api/chat"
+  to     = "/.netlify/functions/chat"
+  status = 200
+
+# SPA fallback
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options         = "DENY"
+    X-Content-Type-Options  = "nosniff"
+    Referrer-Policy         = "strict-origin-when-cross-origin"
