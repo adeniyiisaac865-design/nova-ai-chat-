@@ -9,7 +9,6 @@
 
 const SYSTEM_PROMPT = `You are NOVA, an intelligent and friendly AI assistant. You are helpful, knowledgeable, and precise. You format responses with markdown when helpful (especially for code, lists, and structured information). You are concise when brevity suits the question, and thorough when the topic demands depth. You never pretend to be another AI assistant.`;
 
-// Rate limit: max 20 requests per IP per minute
 const rateLimitMap = new Map();
 const RATE_LIMIT   = 20;
 const WINDOW_MS    = 60_000;
@@ -64,9 +63,8 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "messages array is required." }) };
   }
 
-  // Convert to Gemini format
   const MAX_HISTORY = 40;
-  const geminiMessages = messages
+  const userMessages = messages
     .slice(-MAX_HISTORY)
     .filter(m => m.role === "user" || m.role === "assistant")
     .map(m => ({
@@ -74,11 +72,13 @@ exports.handler = async (event) => {
       parts: [{ text: String(m.content).slice(0, 8000) }],
     }));
 
-  if (geminiMessages.length === 0) {
-    return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "No valid messages." }) };
-  }
+  // Inject system prompt as first user/model exchange
+  const geminiMessages = [
+    { role: "user",  parts: [{ text: SYSTEM_PROMPT }] },
+    { role: "model", parts: [{ text: "Understood! I am NOVA, your intelligent AI assistant. How can I help you today?" }] },
+    ...userMessages,
+  ];
 
-  // Use v1 (not v1beta) and gemini-pro model
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`;
 
   try {
@@ -87,9 +87,6 @@ exports.handler = async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: geminiMessages,
-        systemInstruction: {
-          parts: [{ text: SYSTEM_PROMPT }]
-        },
         generationConfig: {
           maxOutputTokens: 1024,
           temperature: 0.7,
